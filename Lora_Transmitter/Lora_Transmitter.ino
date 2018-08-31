@@ -1,7 +1,16 @@
 #include <SPI.h> // arduino spi library
 #include <LoRa.h> // arduino libraries ra02 lora
 
+/**
+ * Transmitter module:
+ * -  Send character, wait for confirmation. If no confirmation, resend and loop.
+ */
+ 
 int counter = 0;
+
+int MODULE_ACTIVE = 1;
+int CONFIRMATION_RECEIVED = 0;
+String LAST_MESSAGE = "";
 
 // Messages
 const String MSG_DEFAULT = "-";
@@ -47,42 +56,84 @@ void setup() {
     pinMode(button3Pin, INPUT_PULLUP);
 }
 
+
+
 // Main loop function
 void loop() {
-    Serial.print("Sending... ");
-    Serial.println(counter);
+    String infoMsg = MODULE_ACTIVE ? "MODULE IS ACTIVE" : "MODULE IS INACTIVE";
+    Serial.println(infoMsg);
+   
 
    // Read input button PINs
   button1State = digitalRead(button1Pin);
   button2State = digitalRead(button2Pin);
   button3State = digitalRead(button3Pin);
+
+
    
     
   // React to button digital PIN state changes
   if (button1State == LOW) {
     msg = MSG_ONE;
+    MODULE_ACTIVE = 1;
   } else if (button2State == LOW) {
      msg = MSG_TWO;
+     MODULE_ACTIVE = 1;
   } else if (button3State == LOW) {
      msg = MSG_THREE;
+     MODULE_ACTIVE = 1;
   } else {
-    msg = MSG_DEFAULT;
+    msg = LAST_MESSAGE.length() > 0 ? LAST_MESSAGE : MSG_DEFAULT;
+    MODULE_ACTIVE = LAST_MESSAGE.length() > 0;
+  }
+
+
+
+  
+  if (MODULE_ACTIVE || !CONFIRMATION_RECEIVED) {
+    // Print some info to serial line
+      Serial.println("Sending msg: " + msg);
+       
+      // send packet
+      LoRa.beginPacket();
+      LoRa.print(msg);
+      LoRa.endPacket();
+    
+      LAST_MESSAGE = msg;
+      
+      Serial.println("Done...");
+      ////////////////////////////////////////////////////////////////////////////
+    
+      
+      Serial.println("Switching to receiver mode, listening for confirmation");
+      int timeout = 5;
+      char received = 0;
+      char firstCharacter = 0;
+      String receivedBuffer = String();
+      
+      while (timeout-- > 0) {
+            int packetSize = LoRa.parsePacket();
+            if (packetSize) {
+                // read packet
+                while (LoRa.available()) {
+                  received = (char)LoRa.read();
+                  receivedBuffer += received;
+                  Serial.print(received);
+               } 
+    
+              Serial.println();
+              Serial.println("Confirmation received: " + receivedBuffer);
+              firstCharacter = receivedBuffer.charAt(0);
+              if (firstCharacter == LAST_MESSAGE.charAt(0)) { 
+                CONFIRMATION_RECEIVED = 1;
+                LAST_MESSAGE = "";
+                break;
+              }
+            } else {
+                delay(1000);
+            }
+      }
+      delay(1000);
   }
   
-  
-  // Print some info to serial line
-  Serial.println("Sending msg: " + msg);
-   
-  // send packet
-  LoRa.beginPacket();
-  LoRa.print(msg);
-  LoRa.print(counter);
-  LoRa.endPacket();
-  
-  counter++;
-  Serial.println("Done...");
-  Serial.println();
-  
-  delay(3000);
-
 }

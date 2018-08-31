@@ -66,7 +66,8 @@ void loop() {
           Serial.println("Received state: Button A");
           digitalWrite(MY_OUTPUT, HIGH); // Blinkaj prijo
           delay(1000);
-          Serial.println("JA KAO BLINKAM TJ NISAM");
+          Serial.println("Blinknuo sam i gasim sada.");
+          digitalWrite(MY_OUTPUT, LOW);
       } else if (firstCharacter == 'B') {
           Serial.println("Received state: Button B");
       } else if (firstCharacter == 'C') {
@@ -77,6 +78,12 @@ void loop() {
       } else {
           Serial.println("Error! Received unknown character!");
       } 
- 
+
+
+       Serial.println("Sending confirmation");
+      // send packet
+      LoRa.beginPacket();
+      LoRa.print(firstCharacter);
+      LoRa.endPacket();
    }
 }
